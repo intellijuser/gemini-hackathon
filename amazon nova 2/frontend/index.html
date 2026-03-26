@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Nova DueDiligence — AI Document Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fa;--surface:#ffffff;--surface2:#f1f3f5;--surface3:#e9ecef;
+  --border:#dee2e6;--border2:#ced4da;
+  --navy:#0f1c2e;--navy2:#1a2f4a;--navy3:#2c4a6e;
+  --gold:#b8860b;--gold2:#d4a843;--gold-light:#fef9e7;
+  --text:#212529;--dim:#495057;--muted:#868e96;--faint:#adb5bd;
+  --red:#c0392b;--orange:#e67e22;--green:#27ae60;--blue:#2980b9;
+  --red-bg:#fdf2f2;--orange-bg:#fef9f0;--green-bg:#f0fdf4;--blue-bg:#f0f8ff;
+  --r:6px;--font:'Inter',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px}
+#root{height:100%}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:260px;flex-shrink:0;background:var(--navy);display:flex;flex-direction:column;overflow:hidden}
+.sb-header{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-logo-mark{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold2);text-transform:uppercase;margin-bottom:4px}
+.sb-logo-name{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.sb-logo-sub{font-size:10px;color:rgba(255,255,255,.35);font-family:var(--mono);margin-top:3px;letter-spacing:.5px}
+
+.nav-section{padding:16px 12px 6px;font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:var(--r);margin:1px 8px;cursor:pointer;transition:all .12s;font-size:13px;font-weight:500;color:rgba(255,255,255,.55)}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85)}
+.nav-item.active{background:rgba(212,168,67,.15);color:var(--gold2);border-left:2px solid var(--gold2);padding-left:12px}
+.nav-label{flex:1}
+.nav-count{font-size:10px;font-family:var(--mono);background:rgba(255,255,255,.08);padding:2px 6px;border-radius:3px;color:rgba(255,255,255,.4)}
+
+.upload-zone{margin:12px 10px 8px;border:1px dashed rgba(255,255,255,.15);border-radius:var(--r);padding:14px 12px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.03);position:relative;overflow:hidden}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--gold2);background:rgba(212,168,67,.06)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.uz-title{font-size:12px;font-weight:500;color:rgba(255,255,255,.45)}
+.uz-sub{font-size:10px;color:rgba(255,255,255,.2);margin-top:3px}
+
+.doc-list{flex:1;overflow-y:auto;padding:4px 8px}
+.doc-card{border-radius:var(--r);padding:10px 12px;margin-bottom:4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:all .12s}
+.doc-card:hover{border-color:rgba(255,255,255,.12)}
+.doc-card.sel{border-color:rgba(212,168,67,.4);background:rgba(212,168,67,.08)}
+.dc-row{display:flex;align-items:flex-start;gap:8px}
+.dc-check{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.2);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.doc-card.sel .dc-check{background:var(--gold2);border-color:var(--gold2)}
+.dc-check-mark{width:8px;height:8px;display:none}
+.doc-card.sel .dc-check-mark{display:block;color:var(--navy)}
+.dc-name{font-size:12px;font-weight:500;color:rgba(255,255,255,.7);flex:1;word-break:break-all;line-height:1.4}
+.dc-del{color:rgba(255,255,255,.2);font-size:11px;cursor:pointer;padding:2px;transition:color .12s;flex-shrink:0}
+.dc-del:hover{color:rgba(255,80,80,.8)}
+.dc-meta{display:flex;align-items:center;gap:6px;margin-top:5px;padding-left:22px}
+.dc-pages{font-size:10px;color:rgba(255,255,255,.25);font-family:var(--mono)}
+.risk-chip{font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;letter-spacing:.3px}
+.rc-Low{background:rgba(39,174,96,.15);color:#4caf70}
+.rc-Medium{background:rgba(230,126,34,.15);color:#e67e22}
+.rc-High{background:rgba(192,57,43,.15);color:#e74c3c}
+.rc-Critical{background:rgba(192,57,43,.25);color:#ff6b6b}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.topbar{height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border)}
+.tb-breadcrumb{display:flex;align-items:center;gap:8px;font-size:13px}
+.tb-root{color:var(--muted);font-weight:500}
+.tb-sep{color:var(--faint)}
+.tb-current{color:var(--text);font-weight:600}
+.tb-right{display:flex;align-items:center;gap:8px}
+.status-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);padding:5px 10px;border-radius:var(--r)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .12s;font-family:var(--font);white-space:nowrap;letter-spacing:-.1px}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:var(--navy2)}
+.btn-outline{background:transparent;color:var(--dim);border:1px solid var(--border2)}
+.btn-outline:hover{border-color:var(--navy3);color:var(--navy)}
+.btn-gold{background:var(--gold);color:#fff}
+.btn-gold:hover{background:var(--gold2)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px}
+.card-accent{display:flex;align-items:center;gap:8px}
+.card-accent::before{content:'';display:block;width:3px;height:13px;background:var(--navy);border-radius:1px}
+
+/* Severity */
+.sev{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.5px}
+.sev-low{background:var(--green-bg);color:var(--green);border:1px solid rgba(39,174,96,.2)}
+.sev-medium{background:var(--orange-bg);color:var(--orange);border:1px solid rgba(230,126,34,.2)}
+.sev-high{background:var(--red-bg);color:var(--red);border:1px solid rgba(192,57,43,.2)}
+.sev-critical{background:#fdf0f0;color:#a93226;border:1px solid rgba(169,50,38,.3);font-weight:800}
+
+/* Risk flags */
+.flag{padding:14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--border);margin-bottom:8px;border-left:3px solid transparent}
+.flag.sev-low{border-left-color:var(--green)}
+.flag.sev-medium{border-left-color:var(--orange)}
+.flag.sev-high{border-left-color:var(--red)}
+.flag.sev-critical{border-left-color:#a93226;background:#fffafa}
+.flag-hd{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.flag-title{font-size:13px;font-weight:600;flex:1;color:var(--text)}
+.flag-cat{font-size:10px;color:var(--muted);font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);padding:2px 6px;border-radius:3px}
+.flag-clause{font-size:10px;color:var(--faint);font-family:var(--mono)}
+.flag-desc{font-size:12px;color:var(--dim);line-height:1.6}
+.conf-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.conf-bar-bg{flex:1;height:2px;background:var(--border);border-radius:1px}
+.conf-bar-fill{height:100%;background:var(--navy3);border-radius:1px}
+.conf-val{font-size:10px;color:var(--faint);font-family:var(--mono);width:30px;text-align:right}
+
+/* Dashboard */
+.dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.stat-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.stat-value{font-size:26px;font-weight:700;color:var(--text);letter-spacing:-.5px;line-height:1}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:4px}
+
+.gauge-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;align-items:center}
+.gauge-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.gauge-rating{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:6px}
+
+.charts-row{display:grid;grid-template-columns:220px 1fr 1fr;gap:12px;margin-bottom:20px}
+.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.chart-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+
+/* Agent trace */
+.trace-panel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:20px}
+.trace-hd{padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.trace-body{padding:8px;max-height:280px;overflow-y:auto}
+.trace-step{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:4px;margin-bottom:4px;background:var(--surface);border:1px solid var(--border);font-size:12px;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.trace-agent{font-family:var(--mono);font-weight:600;font-size:10px;padding:2px 7px;border-radius:3px;flex-shrink:0;white-space:nowrap}
+.ta-Orchestrator{background:#e8f4fd;color:#1a5276;border:1px solid #aed6f1}
+.ta-Risk{background:#fdf2f2;color:#922b21;border:1px solid #f1948a}
+.ta-Financial{background:#eaf4fb;color:#1f618d;border:1px solid #85c1e9}
+.ta-Obligations{background:#f4ecf7;color:#6c3483;border:1px solid #c39bd3}
+.ta-Compliance{background:#eafaf1;color:#1e8449;border:1px solid #82e0aa}
+.trace-text{color:var(--dim);flex:1;line-height:1.5}
+.trace-status{font-size:11px;flex-shrink:0;color:var(--muted)}
+
+/* Q&A */
+.chat-layout{display:flex;flex-direction:column;height:calc(100vh - 140px)}
+.messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:16px}
+.msg{display:flex;gap:10px;max-width:820px}
+.msg.user{flex-direction:row-reverse;align-self:flex-end}
+.msg-av{width:28px;height:28px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.msg.user .msg-av{background:var(--navy);color:#fff}
+.msg.ai .msg-av{background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+.msg-body{padding:10px 14px;border-radius:var(--r);font-size:13px;line-height:1.65}
+.msg.user .msg-body{background:var(--navy);color:#fff}
+.msg.ai .msg-body{background:var(--surface);border:1px solid var(--border);color:var(--text);white-space:pre-wrap}
+.msg-meta{font-size:10px;color:var(--faint);margin-top:4px;font-family:var(--mono)}
+.chat-input-row{display:flex;gap:8px;padding-top:14px;border-top:1px solid var(--border);flex-shrink:0}
+.chat-input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:10px 14px;color:var(--text);font-size:13px;font-family:var(--font);resize:none;outline:none;transition:border-color .12s;line-height:1.5}
+.chat-input:focus{border-color:var(--navy3)}
+
+/* Fallback warning */
+.fallback-warn{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--orange-bg);border:1px solid rgba(230,126,34,.2);border-radius:var(--r);font-size:11px;color:var(--orange);margin-bottom:10px}
+
+/* Compare */
+.conflict-item{padding:14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--border);margin-bottom:8px;border-left:3px solid var(--red)}
+.conflict-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+.conflict-docs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.doc-chip{font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px 7px;color:var(--dim);font-family:var(--mono)}
+.conflict-desc{font-size:12px;color:var(--dim);line-height:1.55}
+.conflict-rec{font-size:12px;color:var(--dim);line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.rec-tag{font-size:10px;font-weight:600;color:var(--blue);margin-right:4px}
+
+/* Report */
+.report-body{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:28px 32px;font-size:13px;line-height:1.9;color:var(--dim);white-space:pre-wrap;font-family:var(--font)}
+
+/* Obligations */
+.obl-item{display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px}
+.obl-body{flex:1}
+.obl-party{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.obl-text{font-size:12px;color:var(--dim);line-height:1.5}
+.obl-dl{font-size:10px;color:var(--faint);font-family:var(--mono);margin-top:4px}
+
+/* Grid helpers */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-grid{display:flex;flex-direction:column;gap:14px}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px}
+.tag{background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:4px 10px;font-size:11px;color:var(--dim)}
+.tag-ok{border-color:rgba(39,174,96,.3);color:var(--green);background:var(--green-bg)}
+.tag-warn{border-color:rgba(230,126,34,.3);color:var(--orange);background:var(--orange-bg)}
+
+.kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kv{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px}
+.kv-label{font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.kv-value{font-size:13px;font-weight:600;color:var(--text)}
+
+/* Risk score display */
+.score-display{font-size:32px;font-weight:700;letter-spacing:-1px;line-height:1}
+.score-Low{color:var(--green)}
+.score-Medium{color:var(--orange)}
+.score-High{color:var(--red)}
+.score-Critical{color:#a93226}
+
+/* Empty state */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center;gap:12px}
+.empty-title{font-size:15px;font-weight:600;color:var(--dim)}
+.empty-sub{font-size:13px;color:var(--muted);line-height:1.6;max-width:340px}
+
+/* Spinner */
+.spin{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--navy);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Loading */
+.loading-row{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--dim);font-size:13px}
+
+/* Notif */
+.notif{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border);padding:10px 16px;border-radius:var(--r);font-size:13px;z-index:1000;box-shadow:0 4px 20px rgba(0,0,0,.08);animation:fadeUp .3s ease}
+.notif.error{border-color:var(--red);color:var(--red)}
+.notif.success{border-color:var(--green);color:var(--green)}
+
+/* Config modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;width:400px;box-shadow:0 8px 40px rgba(0,0,0,.1)}
+.modal-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:18px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px}
+.field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:9px 12px;color:var(--text);font-size:13px;font-family:var(--mono);outline:none;transition:border-color .12s}
+.field input:focus{border-color:var(--navy3)}
+.modal-footer{display:flex;gap:8px;margin-top:16px}
+
+/* Action bar */
+.action-bar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.select-input{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .12s}
+.select-input:focus{border-color:var(--navy3)}
+
+.align-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border:1px solid}
+.rec-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px}
+.rec-num{width:20px;height:20px;border-radius:50%;background:var(--navy);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.rec-text{font-size:12px;color:var(--dim);line-height:1.5}
+
+.per-doc-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px}
+.per-doc-name{font-size:13px;font-weight:500;color:var(--text);flex:1}
+.per-doc-score{font-size:16px;font-weight:700;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback} = React;
+function getApi(){return localStorage.getItem('nd_api')||'http://localhost:8000'}
+
+function useNotif(){
+  const [n,setN]=useState(null);
+  const show=(msg,type='info')=>{setN({msg,type});setTimeout(()=>setN(null),3500)};
+  return{n,show};
+}
+
+function Spin(){return <div className="spin"/>}
+function SevBadge({s}){const l=(s||'low').toLowerCase();return <span className={`sev sev-${l}`}>{l}</span>}
+function ConfBar({v}){const p=Math.round((v||0)*100);return(
+  <div className="conf-row">
+    <div className="conf-bar-bg"><div className="conf-bar-fill" style={{width:`${p}%`}}/></div>
+    <span className="conf-val">{p}%</span>
+  </div>
+)}
+
+function RiskGauge({score,label}){
+  const r=72,cx=90,cy=90;
+  const full=Math.PI*r;
+  const pct=Math.min(1,Math.max(0,(score||0)/100));
+  const dash=full*pct;
+  const color=score>=75?'#a93226':score>=50?'#e67e22':score>=28?'#b8860b':'#27ae60';
+  return(
+    <div className="gauge-card">
+      <div className="gauge-label">Risk Score</div>
+      <svg width="180" height="100" viewBox="0 0 180 100">
+        <path d={`M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`} fill="none" stroke="#f1f3f5" strokeWidth="10" strokeLinecap="round"/>
+        <path d={`M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={`${dash} ${full}`} style={{transition:'stroke-dasharray .8s ease'}}/>
+        <text x={cx} y={cy-13} textAnchor="middle" fill="#212529" fontSize="28" fontFamily="Inter,sans-serif" fontWeight="700">{score||0}</text>
+        <text x={cx} y={cy+5} textAnchor="middle" fill="#868e96" fontSize="10" fontFamily="IBM Plex Mono,monospace">/ 100</text>
+      </svg>
+      <div className="gauge-rating" style={{color}}>{label||'Low'}</div>
+    </div>
+  );
+}
+
+function BarChart({data}){
+  const ref=useRef(null);const chartRef=useRef(null);
+  useEffect(()=>{
+    if(!ref.current||!data)return;
+    if(chartRef.current)chartRef.current.destroy();
+    chartRef.current=new Chart(ref.current,{
+      type:'bar',
+      data:{labels:Object.keys(data),datasets:[{data:Object.values(data),backgroundColor:['rgba(192,57,43,.7)','rgba(41,128,185,.7)','rgba(184,134,11,.7)','rgba(39,174,96,.7)'],borderColor:['#c0392b','#2980b9','#b8860b','#27ae60'],borderWidth:1,borderRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#868e96',font:{size:11}}},y:{grid:{color:'#f1f3f5'},ticks:{color:'#868e96',font:{size:11},stepSize:1,precision:0},beginAtZero:true}}}
+    });
+    return()=>{if(chartRef.current)chartRef.current.destroy()};
+  },[data]);
+  return <div style={{position:'relative',height:'130px'}}><canvas ref={ref}/></div>;
+}
+
+function DonutChart({data}){
+  const ref=useRef(null);const chartRef=useRef(null);
+  useEffect(()=>{
+    if(!ref.current||!data)return;
+    if(chartRef.current)chartRef.current.destroy();
+    const vals=[data.critical||0,data.high||0,data.medium||0,data.low||0];
+    if(vals.every(v=>v===0))return;
+    chartRef.current=new Chart(ref.current,{
+      type:'doughnut',
+      data:{labels:['Critical','High','Medium','Low'],datasets:[{data:vals,backgroundColor:['rgba(169,50,38,.8)','rgba(192,57,43,.7)','rgba(230,126,34,.7)','rgba(39,174,96,.7)'],borderColor:['#a93226','#c0392b','#e67e22','#27ae60'],borderWidth:1}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',layout:{padding:0},plugins:{legend:{position:'right',labels:{color:'#495057',font:{size:11},padding:10,boxWidth:10,boxHeight:10}}}}
+    });
+    return()=>{if(chartRef.current)chartRef.current.destroy()};
+  },[data]);
+  return <div style={{position:'relative',height:'130px'}}><canvas ref={ref}/></div>;
+}
+
+function AgentTrace({steps,loading}){
+  const agentKey=n=>{
+    if(n.includes('Risk'))return'Risk';
+    if(n.includes('Financial'))return'Financial';
+    if(n.includes('Obligations'))return'Obligations';
+    if(n.includes('Compliance'))return'Compliance';
+    return'Orchestrator';
+  };
+  return(
+    <div className="trace-panel">
+      <div className="trace-hd">
+        {loading?<Spin/>:<span style={{color:'var(--green)',fontSize:11}}>&#10003;</span>}
+        <span>Agent Execution Trace</span>
+        <span style={{marginLeft:'auto',fontFamily:'var(--mono)',fontSize:10}}>{steps.length} steps</span>
+      </div>
+      <div className="trace-body">
+        {steps.map((s,i)=>(
+          <div key={i} className="trace-step" style={{animationDelay:`${i*60}ms`}}>
+            <span className={`trace-agent ta-${agentKey(s.agent)}`}>{s.agent}</span>
+            <span className="trace-text">{s.step}</span>
+            <span className="trace-status">{s.status==='complete'?'Done':s.status==='error'?'Error':'...'}</span>
+          </div>
+        ))}
+        {loading&&<div className="trace-step"><Spin/><span className="trace-text">Processing...</span></div>}
+      </div>
+    </div>
+  );
+}
+
+// DASHBOARD
+function Dashboard({docs,selectedDocs,notif}){
+  const [data,setData]=useState(null);const [loading,setLoading]=useState(false);
+  const fetch_=async()=>{
+    if(!selectedDocs.length)return;
+    setLoading(true);
+    try{
+      const res=await fetch(`${getApi()}/dashboard`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({document_ids:selectedDocs})});
+      const d=await res.json();
+      if(!res.ok)throw new Error(d.detail||'Failed');
+      if(d.data===null){notif.show('Run Deep Analysis on selected documents first','info');return;}
+      setData(d);
+    }catch(e){notif.show(e.message,'error');}
+    finally{setLoading(false);}
+  };
+  useEffect(()=>{if(selectedDocs.length)fetch_();},[selectedDocs.join(',')]);
+  const analyzedCount=docs.filter(d=>selectedDocs.includes(d.id)&&d.analyzed).length;
+  if(!selectedDocs.length)return <div className="empty"><div className="empty-title">No Documents Selected</div><div className="empty-sub">Select documents from the sidebar to view aggregated risk metrics.</div></div>;
+  if(analyzedCount===0)return <div className="empty"><div className="empty-title">Analysis Required</div><div className="empty-sub">Run Deep Analysis on selected documents first, then return here to view the risk dashboard.</div></div>;
+  return(
+    <div>
+      <div className="action-bar">
+        <button className="btn btn-outline btn-sm" onClick={fetch_} disabled={loading}>{loading?<Spin/>:'Refresh'}</button>
+        <span style={{fontSize:11,color:'var(--muted)',fontFamily:'var(--mono)'}}>{analyzedCount} of {selectedDocs.length} document(s) analyzed</span>
+      </div>
+      {data&&<>
+        <div className="dash-grid">
+          <div className="stat-card"><div className="stat-label">Risk Flags</div><div className={`stat-value score-${data.risk_label}`}>{data.total_risk_flags}</div><div className="stat-sub">across {data.documents_analyzed} document(s)</div></div>
+          <div className="stat-card"><div className="stat-label">Critical</div><div className="stat-value score-Critical">{data.severity_distribution?.critical||0}</div><div className="stat-sub">require immediate review</div></div>
+          <div className="stat-card"><div className="stat-label">High</div><div className="stat-value score-High">{data.severity_distribution?.high||0}</div><div className="stat-sub">elevated risk items</div></div>
+          <div className="stat-card"><div className="stat-label">Overall Rating</div><div className={`stat-value score-${data.risk_label}`}>{data.aggregate_risk_score}</div><div className="stat-sub" style={{fontWeight:600}}>{data.risk_label}</div></div>
+        </div>
+        <div className="charts-row">
+          <RiskGauge score={data.aggregate_risk_score} label={data.risk_label}/>
+          <div className="chart-wrap"><div className="chart-title">Risk by Category</div><BarChart data={data.category_breakdown}/></div>
+          <div className="chart-wrap"><div className="chart-title">Severity Distribution</div><DonutChart data={data.severity_distribution}/></div>
+        </div>
+        {data.top_risks?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Top Risk Findings</span></div></div>
+          {data.top_risks.map((f,i)=>(
+            <div key={i} className={`flag sev-${(f.severity||'low').toLowerCase()}`}>
+              <div className="flag-hd"><span className="flag-title">{f.title}</span><span className="flag-cat">{f.category}</span><SevBadge s={f.severity}/></div>
+              <div className="flag-desc">{f.description}</div>
+              <ConfBar v={f.confidence||0.8}/>
+            </div>
+          ))}
+        </div>}
+        {data.per_document?.length>0&&<div className="card" style={{marginTop:14}}><div className="card-header"><div className="card-accent"><span className="card-title">Per-Document Scores</span></div></div>
+          {data.per_document.map((d,i)=>(
+            <div key={i} className="per-doc-row">
+              <span className="per-doc-name">{d.filename}</span>
+              <span style={{fontSize:11,color:'var(--muted)',fontFamily:'var(--mono)'}}>{d.flags} flags</span>
+              <span className={`per-doc-score score-${d.risk_label}`}>{d.risk_score||'—'}</span>
+              {d.risk_label&&<span className={`risk-chip rc-${d.risk_label}`}>{d.risk_label}</span>}
+            </div>
+          ))}
+        </div>}
+      </>}
+    </div>
+  );
+}
+
+// ANALYSIS
+function Analysis({docs,selectedDocs,docStore,setDocStore,notif}){
+  const [targetId,setTargetId]=useState('');const [result,setResult]=useState(null);
+  const [trace,setTrace]=useState([]);const [visible,setVisible]=useState([]);const [loading,setLoading]=useState(false);
+  const selDocs=docs.filter(d=>selectedDocs.includes(d.id));
+  const animate=steps=>{setVisible([]);steps.forEach((s,i)=>setTimeout(()=>setVisible(p=>[...p,s]),i*400));};
+  const run=async()=>{
+    if(!targetId)return;setLoading(true);setResult(null);setTrace([]);setVisible([]);
+    try{
+      const res=await fetch(`${getApi()}/analyze/${targetId}`,{method:'POST'});
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.detail||'Analysis failed');
+      setResult(data);animate(data.trace||[]);
+      setDocStore(p=>({...p,[targetId]:{...p[targetId],analyzed:true,risk_score:data.analysis.risk_score,risk_label:data.analysis.risk_label,analysis:data.analysis}}));
+      notif.show('Analysis complete','success');
+    }catch(e){notif.show(e.message,'error');}
+    finally{setLoading(false);}
+  };
+  const a=result?.analysis;
+  return(
+    <div>
+      <div className="action-bar">
+        <select className="select-input" value={targetId} onChange={e=>setTargetId(e.target.value)} style={{flex:1,maxWidth:300}}>
+          <option value="">Select document</option>
+          {selDocs.map(d=><option key={d.id} value={d.id}>{d.filename}</option>)}
+        </select>
+        <button className="btn btn-primary" onClick={run} disabled={!targetId||loading}>{loading&&<Spin/>}Run Agent Pipeline</button>
+      </div>
+      {(loading||visible.length>0)&&<AgentTrace steps={visible} loading={loading}/>}
+      {loading&&<div className="loading-row"><Spin/><span>Amazon Nova multi-agent pipeline analyzing document — all 4 agents running in parallel...</span></div>}
+      {!result&&!loading&&<div className="empty"><div className="empty-title">Multi-Agent Document Analysis</div><div className="empty-sub">Select a document and launch the parallel agent pipeline. Risk, Financial, Obligations, and Compliance agents execute simultaneously.</div></div>}
+      {a&&<div className="section-grid">
+        <div className="card">
+          <div className="card-header"><div className="card-accent"><span className="card-title">Executive Summary</span></div></div>
+          <p style={{fontSize:13,lineHeight:1.75,color:'var(--dim)',marginBottom:16}}>{a.executive_summary}</p>
+          <div style={{display:'flex',gap:24,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+            <div><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:4}}>Risk Score</div><div className={`score-display score-${a.risk_label}`}>{a.risk_score}<span style={{fontSize:14,fontWeight:400,color:'var(--muted)'}}> /100</span></div></div>
+            <div><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:8}}>Rating</div><span className={`risk-chip rc-${a.risk_label}`}>{a.risk_label}</span></div>
+            <div><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:4}}>Confidence</div><div className={`score-display score-${a.risk_label}`}>{Math.round(a.overall_confidence*100)}<span style={{fontSize:14,fontWeight:400,color:'var(--muted)'}}>%</span></div></div>
+            <div><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:4}}>Flags</div><div className="score-display" style={{color:'var(--text)'}}>{a.risk_flags?.length||0}</div></div>
+          </div>
+        </div>
+        <div className="grid-2">
+          {a.parties?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Parties</span></div></div><div className="tag-list">{a.parties.map((p,i)=><span key={i} className="tag">{p}</span>)}</div></div>}
+          <div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Agent Confidence</span></div></div>
+            {Object.entries(a.confidence_scores||{}).map(([k,v])=>(
+              <div key={k} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                <span style={{fontSize:11,color:'var(--dim)',width:85,textTransform:'capitalize'}}>{k}</span>
+                <div style={{flex:1,height:3,background:'var(--border)',borderRadius:2,overflow:'hidden'}}><div style={{width:`${Math.round(v*100)}%`,height:'100%',background:'var(--navy3)',borderRadius:2}}/></div>
+                <span style={{fontSize:10,color:'var(--muted)',fontFamily:'var(--mono)',width:32,textAlign:'right'}}>{Math.round(v*100)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {a.risk_flags?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Risk Flags ({a.risk_flags.length})</span></div></div>
+          {a.risk_flags.map((f,i)=>(
+            <div key={i} className={`flag sev-${(f.severity||'low').toLowerCase()}`}>
+              <div className="flag-hd"><span className="flag-title">{f.title}</span><span className="flag-cat">{f.category}</span>{f.clause_reference&&f.clause_reference!=='Not specified'&&<span className="flag-clause">{f.clause_reference}</span>}<SevBadge s={f.severity}/></div>
+              <div className="flag-desc">{f.description}</div>
+              <ConfBar v={f.confidence||0.8}/>
+            </div>
+          ))}
+        </div>}
+        <div className="grid-2">
+          {a.key_dates?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Key Dates</span></div></div>
+            {a.key_dates.map((d,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',padding:'9px 0',borderBottom:'1px solid var(--border)',gap:12}}>
+                <div><div style={{fontSize:12,color:'var(--text)',fontWeight:500}}>{d.label}</div>{d.consequence&&<div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{d.consequence}</div>}</div>
+                <span style={{fontSize:12,fontFamily:'var(--mono)',color:'var(--dim)',flexShrink:0}}>{d.date}</span>
+              </div>
+            ))}
+          </div>}
+          {a.financial_terms?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Financial Terms</span></div></div>
+            {a.financial_terms.map((t,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',padding:'9px 0',borderBottom:'1px solid var(--border)',gap:8}}>
+                <div><div style={{fontSize:12,color:'var(--text)',fontWeight:500}}>{t.label}</div><div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{t.type} · {t.direction}</div></div>
+                <div style={{textAlign:'right'}}><span style={{fontSize:13,fontWeight:600,color:'var(--text)',fontFamily:'var(--mono)'}}>{t.value}</span><ConfBar v={t.confidence||0.8}/></div>
+              </div>
+            ))}
+            {a.total_liability_exposure&&<div style={{marginTop:10,padding:'8px 10px',background:'var(--surface2)',borderRadius:'var(--r)',border:'1px solid var(--border)'}}><div style={{fontSize:10,color:'var(--muted)',marginBottom:3,textTransform:'uppercase',letterSpacing:'1px'}}>Total Exposure</div><div style={{fontSize:13,fontWeight:600,color:'var(--red)'}}>{a.total_liability_exposure}</div></div>}
+          </div>}
+        </div>
+        {a.obligations?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Party Obligations ({a.obligations.length})</span></div></div>
+          {a.obligations.map((o,i)=>(
+            <div key={i} className="obl-item">
+              <div className="obl-body"><div className="obl-party">{o.party}</div><div className="obl-text">{o.obligation}</div>{o.deadline&&<div className="obl-dl">Deadline: {o.deadline}</div>}{o.consequences&&<div style={{fontSize:11,color:'var(--muted)',marginTop:3}}>Consequence: {o.consequences}</div>}</div>
+              <SevBadge s={o.risk_level}/>
+            </div>
+          ))}
+        </div>}
+        {a.missing_clauses?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Missing Protections ({a.missing_clauses.length})</span></div></div>
+          {a.missing_clauses.map((c,i)=>(
+            <div key={i} style={{padding:'10px 12px',background:'var(--surface2)',borderRadius:'var(--r)',border:'1px solid var(--border)',marginBottom:6}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}><span style={{fontSize:12,fontWeight:600,flex:1}}>{c.clause}</span><span className={`tag ${c.importance==='required'?'tag-warn':''}`}>{c.importance}</span></div>
+              {c.risk_if_absent&&<div style={{fontSize:11,color:'var(--dim)',lineHeight:1.5}}>{c.risk_if_absent}</div>}
+              <ConfBar v={c.confidence||0.8}/>
+            </div>
+          ))}
+        </div>}
+        {a.present_protections?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Present Protections</span></div></div><div className="tag-list">{a.present_protections.map((p,i)=><span key={i} className="tag tag-ok">{p}</span>)}</div></div>}
+      </div>}
+    </div>
+  );
+}
+
+// ASK
+function Ask({selectedDocs,docs,notif}){
+  const [msgs,setMsgs]=useState([{role:'ai',text:'Select documents in the sidebar and submit your query. The system will use semantic search to retrieve the most relevant passages before generating a response.'}]);
+  const [input,setInput]=useState('');const [loading,setLoading]=useState(false);
+  const bottomRef=useRef(null);
+  useEffect(()=>bottomRef.current?.scrollIntoView({behavior:'smooth'}),[msgs]);
+  const send=async()=>{
+    if(!input.trim()||loading)return;
+    if(!selectedDocs.length){notif.show('Select at least one document first','error');return;}
+    const q=input.trim();setInput('');
+    setMsgs(m=>[...m,{role:'user',text:q}]);setLoading(true);
+    try{
+      const res=await fetch(`${getApi()}/ask`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,document_ids:selectedDocs})});
+      const d=await res.json();
+      if(!res.ok)throw new Error(d.detail||'Failed');
+      setMsgs(m=>[...m,{role:'ai',text:d.answer,meta:`${d.chunks_retrieved} chunks — ${d.retrieval_method} — relevance: ${(d.top_relevance_score*100).toFixed(0)}%`,fallback:d.fallback_warning}]);
+    }catch(e){setMsgs(m=>[...m,{role:'ai',text:`Error: ${e.message}`}]);}
+    finally{setLoading(false);}
+  };
+  return(
+    <div className="chat-layout">
+      <div className="messages">
+        {msgs.map((m,i)=>(
+          <div key={i} className={`msg ${m.role}`}>
+            <div className="msg-av">{m.role==='user'?'U':'N'}</div>
+            <div>
+              <div className="msg-body">{m.text}</div>
+              {m.meta&&<div className="msg-meta">{m.meta}</div>}
+              {m.fallback&&<div className="fallback-warn">Semantic search unavailable — using full-text fallback. Enable amazon.titan-embed-text-v2:0 in AWS Bedrock for improved retrieval accuracy.</div>}
+            </div>
+          </div>
+        ))}
+        {loading&&<div className="msg ai"><div className="msg-av">N</div><div className="msg-body" style={{display:'flex',gap:10,alignItems:'center',color:'var(--muted)'}}><Spin/>Retrieving relevant passages and generating response...</div></div>}
+        <div ref={bottomRef}/>
+      </div>
+      <div className="chat-input-row">
+        <textarea className="chat-input" rows={2} placeholder={selectedDocs.length?'Enter your query...':'Select documents first...'} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}}/>
+        <button className="btn btn-primary" onClick={send} disabled={loading||!input.trim()} style={{padding:'0 20px'}}>Submit</button>
+      </div>
+    </div>
+  );
+}
+
+// COMPARE
+function Compare({selectedDocs,docs,notif}){
+  const [result,setResult]=useState(null);const [loading,setLoading]=useState(false);
+  const run=async()=>{
+    if(selectedDocs.length<2){notif.show('Select at least 2 documents','error');return;}
+    setLoading(true);setResult(null);
+    try{
+      const res=await fetch(`${getApi()}/compare`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({document_ids:selectedDocs})});
+      const d=await res.json();if(!res.ok)throw new Error(d.detail||'Failed');setResult(d);
+    }catch(e){notif.show(e.message,'error');}finally{setLoading(false);}
+  };
+  const c=result?.comparison;
+  const alignColor={poor:'var(--red)',fair:'var(--orange)',good:'var(--blue)',excellent:'var(--green)'};
+  return(
+    <div>
+      <div className="action-bar">
+        <button className="btn btn-primary" onClick={run} disabled={selectedDocs.length<2||loading}>{loading&&<Spin/>}Run Comparison ({selectedDocs.length} documents)</button>
+        {selectedDocs.length<2&&<span style={{fontSize:11,color:'var(--muted)'}}>Select 2 or more documents to compare</span>}
+      </div>
+      {loading&&<div className="loading-row"><Spin/><span>Analyzing documents for conflicts and inconsistencies...</span></div>}
+      {!result&&!loading&&<div className="empty"><div className="empty-title">Cross-Document Comparison</div><div className="empty-sub">Select 2 or more documents to identify conflicts, inconsistencies, and alignment across your document set.</div></div>}
+      {c&&<div className="section-grid">
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:4}}>
+          <span style={{fontSize:15,fontWeight:700,color:'var(--text)'}}>Comparison Results</span>
+          {c.overall_alignment&&<span className="align-badge" style={{color:alignColor[c.overall_alignment]||'var(--muted)',borderColor:alignColor[c.overall_alignment]||'var(--border)'}}>{c.overall_alignment} alignment</span>}
+        </div>
+        {c.conflicts?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Conflicts Identified ({c.conflicts.length})</span></div></div>
+          {c.conflicts.map((f,i)=>(
+            <div key={i} className="conflict-item">
+              <div className="conflict-title">{f.title}</div>
+              {f.documents_involved?.length>0&&<div className="conflict-docs">{f.documents_involved.map((d,j)=><span key={j} className="doc-chip">{d}</span>)}</div>}
+              <div className="conflict-desc">{f.description}</div>
+              {f.recommendation&&<div className="conflict-rec"><span className="rec-tag">RECOMMENDATION</span>{f.recommendation}</div>}
+            </div>
+          ))}
+        </div>}
+        {c.cross_document_risks?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Cross-Document Risks</span></div></div>
+          {c.cross_document_risks.map((r,i)=>(
+            <div key={i} style={{padding:'9px 12px',background:'var(--surface2)',borderRadius:'var(--r)',border:'1px solid var(--border)',marginBottom:6,fontSize:12,color:'var(--dim)',lineHeight:1.5}}>
+              {typeof r==='string'?r:r.risk}
+            </div>
+          ))}
+        </div>}
+        {c.consistencies?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Consistent Elements</span></div></div><div className="tag-list">{c.consistencies.map((s,i)=><span key={i} className="tag tag-ok">{s}</span>)}</div></div>}
+        {c.recommendations?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Recommendations</span></div></div>
+          {c.recommendations.map((r,i)=><div key={i} className="rec-item"><div className="rec-num">{i+1}</div><div className="rec-text">{r}</div></div>)}
+        </div>}
+      </div>}
+    </div>
+  );
+}
+
+// REPORT
+function Report({selectedDocs,docs,notif}){
+  const [report,setReport]=useState('');const [loading,setLoading]=useState(false);
+  const run=async()=>{
+    if(!selectedDocs.length){notif.show('Select at least one document','error');return;}
+    setLoading(true);setReport('');
+    try{
+      const res=await fetch(`${getApi()}/report`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({document_ids:selectedDocs})});
+      const d=await res.json();if(!res.ok)throw new Error(d.detail||'Failed');setReport(d.report);
+    }catch(e){notif.show(e.message,'error');}finally{setLoading(false);}
+  };
+  const copy=()=>{navigator.clipboard.writeText(report);notif.show('Copied to clipboard','success')};
+  const downloadPDF=()=>{
+    try{
+      const {jsPDF}=window.jspdf;
+      const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      const margin=20,pageW=210,pageH=297,lineH=6,maxW=pageW-margin*2;
+      let y=margin;
+      pdf.setFont('helvetica','bold');pdf.setFontSize(16);pdf.setTextColor(15,28,46);
+      pdf.text('Executive Due Diligence Report',margin,y);y+=8;
+      pdf.setFontSize(9);pdf.setTextColor(134,142,150);pdf.setFont('helvetica','normal');
+      pdf.text(`Nova DueDiligence | Amazon Nova Pro | ${new Date().toLocaleDateString()}`,margin,y);y+=4;
+      pdf.setDrawColor(184,134,11);pdf.setLineWidth(0.5);pdf.line(margin,y,pageW-margin,y);y+=8;
+      pdf.setFontSize(10);pdf.setTextColor(50,50,50);
+      const lines=pdf.splitTextToSize(report,maxW);
+      lines.forEach(line=>{
+        if(y>pageH-margin){pdf.addPage();y=margin;}
+        const isHdr=/^[0-9]+\.\s+[A-Z]/.test(line)||/^#{1,3}\s/.test(line.trim());
+        pdf.setFont('helvetica',isHdr?'bold':'normal');
+        pdf.setTextColor(isHdr?15:50,isHdr?28:50,isHdr?46:50);
+        pdf.text(line.replace(/^#+\s*/,''),margin,y);y+=lineH;
+      });
+      const name=docs.find(d=>selectedDocs.includes(d.id))?.filename?.replace('.pdf','')||'report';
+      pdf.save(`DueDiligence_${name}_${new Date().toISOString().slice(0,10)}.pdf`);
+      notif.show('PDF downloaded','success');
+    }catch(e){notif.show('PDF export failed: '+e.message,'error');}
+  };
+  return(
+    <div>
+      <div className="action-bar">
+        <button className="btn btn-primary" onClick={run} disabled={!selectedDocs.length||loading}>{loading&&<Spin/>}Generate Report</button>
+        {report&&<><button className="btn btn-outline" onClick={copy}>Copy</button><button className="btn btn-outline" onClick={downloadPDF}>Export PDF</button></>}
+      </div>
+      {loading&&<div className="loading-row"><Spin/><span>Generating executive due diligence memorandum via Amazon Nova Pro...</span></div>}
+      {!report&&!loading&&<div className="empty"><div className="empty-title">Executive Report</div><div className="empty-sub">Generate a comprehensive due diligence memorandum covering risks, obligations, financial exposure, and recommendations.</div></div>}
+      {report&&<>
+        <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:12,fontSize:11,color:'var(--muted)',fontFamily:'var(--mono)'}}>
+          <span>{selectedDocs.length} document(s) analyzed</span><span>|</span><span>Amazon Nova Pro</span>
+        </div>
+        <div className="report-body">{report}</div>
+      </>}
+    </div>
+  );
+}
+
+// CONFIG
+function ConfigModal({onClose,onSave}){
+  const [url,setUrl]=useState(getApi());
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-title">API Configuration</div>
+        <div className="modal-sub">Enter the URL of your FastAPI backend. AWS credentials must be configured on the server.</div>
+        <div className="field"><label>Backend URL</label><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="http://localhost:8000"/></div>
+        <div className="modal-footer">
+          <button className="btn btn-primary" onClick={()=>{localStorage.setItem('nd_api',url);onSave(url);onClose();}}>Save</button>
+          <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// CLUSTER
+function Cluster({selectedDocs,docs,notif}){
+  const [result,setResult]=useState(null);const [loading,setLoading]=useState(false);
+  const analyzedSel=docs.filter(d=>selectedDocs.includes(d.id)&&d.analyzed);
+  const run=async()=>{
+    if(analyzedSel.length<2){notif.show('Select at least 2 analyzed documents','error');return;}
+    setLoading(true);setResult(null);
+    try{
+      const res=await fetch(`${getApi()}/cluster`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({document_ids:selectedDocs})});
+      const d=await res.json();if(!res.ok)throw new Error(d.detail||'Failed');setResult(d);
+    }catch(e){notif.show(e.message,'error');}finally{setLoading(false);}
+  };
+  const c=result?.clustering;
+  const sevColor={critical:'var(--red)',high:'var(--orange)',medium:'var(--gold)',low:'var(--green)'};
+  return(
+    <div>
+      <div className="action-bar">
+        <button className="btn btn-primary" onClick={run} disabled={analyzedSel.length<2||loading}>{loading&&<Spin/>}Identify Systemic Risks ({analyzedSel.length} analyzed)</button>
+        {analyzedSel.length<2&&<span style={{fontSize:11,color:'var(--muted)'}}>Analyze 2 or more documents first, then run clustering</span>}
+      </div>
+      {loading&&<div className="loading-row"><Spin/><span>Nova Pro analyzing risk patterns across your document portfolio...</span></div>}
+      {!result&&!loading&&<div className="empty"><div className="empty-title">Portfolio Risk Clustering</div><div className="empty-sub">Identifies systemic risks that appear across multiple documents — exposures that are more dangerous precisely because they are not isolated to a single contract.</div></div>}
+      {c&&<div className="section-grid">
+        {c.portfolio_summary&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Portfolio Risk Posture</span></div></div>
+          <p style={{fontSize:13,lineHeight:1.75,color:'var(--dim)',marginBottom:14}}>{c.portfolio_summary}</p>
+          <div style={{display:'flex',gap:20}}>
+            {c.riskiest_document&&<div><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:4}}>Highest Risk</div><div style={{fontSize:13,fontWeight:600,color:'var(--red)'}}>{c.riskiest_document}</div></div>}
+            {c.safest_document&&<div><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:4}}>Lowest Risk</div><div style={{fontSize:13,fontWeight:600,color:'var(--green)'}}>{c.safest_document}</div></div>}
+          </div>
+        </div>}
+        {c.systemic_risks?.length>0&&<div className="card"><div className="card-header"><div className="card-accent"><span className="card-title">Systemic Risk Patterns ({c.systemic_risks.length})</span></div></div>
+          {c.systemic_risks.map((r,i)=>(
+            <div key={i} style={{padding:'14px',borderRadius:'var(--r)',background:'var(--surface2)',border:`1px solid var(--border)`,borderLeft:`3px solid ${sevColor[r.severity]||'var(--border)'}`,marginBottom:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                <span style={{fontSize:13,fontWeight:600,flex:1}}>{r.pattern}</span>
+                <SevBadge s={r.severity}/>
+              </div>
+              <div style={{fontSize:12,color:'var(--dim)',lineHeight:1.6,marginBottom:8}}>{r.description}</div>
+              {r.affected_documents?.length>0&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>{r.affected_documents.map((d,j)=><span key={j} className="doc-chip">{d}</span>)}</div>}
+              {r.recommendation&&<div style={{fontSize:12,color:'var(--dim)',paddingTop:8,borderTop:'1px solid var(--border)'}}><span style={{fontWeight:600,color:'var(--navy)',marginRight:4}}>Action:</span>{r.recommendation}</div>}
+            </div>
+          ))}
+        </div>}
+      </div>}
+    </div>
+  );
+}
+
+// ROOT APP
+function App(){
+  const [docs,setDocs]=useState([]);const [docStore,setDocStore]=useState({});
+  const [sel,setSel]=useState([]);const [tab,setTab]=useState('dashboard');
+  const [drag,setDrag]=useState(false);const [uploading,setUploading]=useState(false);
+  const [showCfg,setShowCfg]=useState(false);
+  const notif=useNotif();
+
+  const toggle=id=>setSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+
+  const upload=async file=>{
+    if(!file.name.endsWith('.pdf')){notif.show('Only PDF files are supported','error');return;}
+    setUploading(true);
+    try{
+      const fd=new FormData();fd.append('file',file);
+      const res=await fetch(`${getApi()}/upload`,{method:'POST',body:fd});
+      const d=await res.json();if(!res.ok)throw new Error(d.detail||'Upload failed');
+      const doc={id:d.id,filename:d.filename,summary:d.summary,page_count:d.page_count,analyzed:false,risk_score:null,risk_label:null};
+      setDocs(prev=>[...prev,doc]);setDocStore(prev=>({...prev,[d.id]:doc}));setSel(s=>[...s,d.id]);
+      const modeMsg = d.embed_mode === 'sequential'
+        ? `${d.filename} — switching to sequential embedding (large document)`
+        : `${d.filename} uploaded — ${d.indexed_chunks} chunks indexed`;
+      notif.show(modeMsg, d.embed_mode === 'sequential' ? 'info' : 'success');
+      if (d.embed_mode === 'sequential') {
+        setTimeout(() => notif.show(d.embed_message, 'info'), 200);
+      }
+    }catch(e){notif.show(e.message,'error');}finally{setUploading(false);}
+  };
+
+  const del=async(id,e)=>{
+    e.stopPropagation();
+    try{await fetch(`${getApi()}/document/${id}`,{method:'DELETE'})}catch{}
+    setDocs(d=>d.filter(x=>x.id!==id));setSel(s=>s.filter(x=>x!==id));
+  };
+
+  useEffect(()=>{setDocs(prev=>prev.map(d=>docStore[d.id]?{...d,...docStore[d.id]}:d));},[docStore]);
+
+  const TABS=[
+    {id:'dashboard',label:'Dashboard'},
+    {id:'analyze',label:'Deep Analysis'},
+    {id:'ask',label:'Document Q&A'},
+    {id:'compare',label:'Comparison'},
+    {id:'report',label:'Report'},
+
+  ];
+  const analyzedCount=docs.filter(d=>sel.includes(d.id)&&d.analyzed).length;
+  const currentTab=TABS.find(t=>t.id===tab);
+
+  return(
+    <div className="app">
+      <div className="sidebar">
+        <div className="sb-header">
+          <div className="sb-logo-mark">Nova DueDiligence</div>
+          <div className="sb-logo-name">Document Intelligence</div>
+          <div className="sb-logo-sub">Powered by Amazon Nova Pro</div>
+        </div>
+        <div className="nav-section">Navigation</div>
+        {TABS.map(t=>(
+          <div key={t.id} className={`nav-item ${tab===t.id?'active':''}`} onClick={()=>setTab(t.id)}>
+            <span className="nav-label">{t.label}</span>
+            {t.id==='analyze'&&analyzedCount>0&&<span className="nav-count">{analyzedCount}</span>}
+          </div>
+        ))}
+        <div className="nav-section" style={{marginTop:8}}>Documents</div>
+        <div className={`upload-zone ${drag?'drag':''}`}
+          onDragOver={e=>{e.preventDefault();setDrag(true)}}
+          onDragLeave={()=>setDrag(false)}
+          onDrop={e=>{e.preventDefault();setDrag(false);Array.from(e.dataTransfer.files).forEach(upload)}}>
+          <input type="file" accept=".pdf" multiple onChange={e=>Array.from(e.target.files).forEach(upload)}/>
+          {uploading?<><div className="uz-title">Indexing document...</div></>
+            :<><div className="uz-title">Upload PDF Documents</div><div className="uz-sub">Drop files here or click to browse</div></>}
+        </div>
+        <div className="doc-list">
+          {docs.length===0&&<div style={{textAlign:'center',padding:'20px 12px',color:'rgba(255,255,255,.2)',fontSize:12}}>No documents uploaded</div>}
+          {docs.map(doc=>(
+            <div key={doc.id} className={`doc-card ${sel.includes(doc.id)?'sel':''}`} onClick={()=>toggle(doc.id)}>
+              <div className="dc-row">
+                <div className="dc-check"><svg className="dc-check-mark" viewBox="0 0 8 8" fill="currentColor"><path d="M1 4l2 2 4-4"/></svg></div>
+                <div className="dc-name">{doc.filename}</div>
+                <div className="dc-del" onClick={e=>del(doc.id,e)}>✕</div>
+              </div>
+              <div className="dc-meta">
+                <span className="dc-pages">{doc.page_count}p</span>
+                {doc.risk_label&&<span className={`risk-chip rc-${doc.risk_label}`}>{doc.risk_label} · {doc.risk_score}</span>}
+                {!doc.analyzed&&<span style={{fontSize:10,color:'rgba(255,255,255,.2)'}}>pending</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="main">
+        <div className="topbar">
+          <div className="tb-breadcrumb">
+            <span className="tb-root">Nova DueDiligence</span>
+            <span className="tb-sep">/</span>
+            <span className="tb-current">{currentTab?.label}</span>
+          </div>
+          <div className="tb-right">
+            <div className="status-indicator"><div className="status-dot"/>{sel.length} selected · {docs.length} total</div>
+            <button className="btn btn-outline btn-sm" onClick={()=>setShowCfg(true)}>Configure</button>
+          </div>
+        </div>
+        <div className="content">
+          {tab==='dashboard'&&<Dashboard docs={docs} selectedDocs={sel} notif={notif}/>}
+          {tab==='analyze'&&<Analysis docs={docs} selectedDocs={sel} docStore={docStore} setDocStore={setDocStore} notif={notif}/>}
+          {tab==='ask'&&<Ask selectedDocs={sel} docs={docs} notif={notif}/>}
+          {tab==='compare'&&<Compare selectedDocs={sel} docs={docs} notif={notif}/>}
+          {tab==='report'&&<Report selectedDocs={sel} docs={docs} notif={notif}/>}
+
+        </div>
+      </div>
+      {showCfg&&<ConfigModal onClose={()=>setShowCfg(false)} onSave={()=>{}}/>}
+      {notif.n&&<div className={`notif ${notif.n.type}`}>{notif.n.msg}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
